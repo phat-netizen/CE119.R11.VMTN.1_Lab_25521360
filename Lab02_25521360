@@ -1,0 +1,277 @@
+	.data			#them check empty trong phan check_pop
+#TN2, D:
+diem_ca_nhan: .word 6, 3, 8, 9, 2, 5, 7, 2, 6, 9, 4, 3
+grade_tab: .byte 0, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3
+	.align 2
+hist: .word 0x00000000, 0x00000000, 0x00000000, 0x00000000
+
+min: .asciiz "min="
+max: .asciiz "max="
+g0: .asciiz "g0="
+g1: .asciiz "g1="
+g2: .asciiz "g2="
+g3: .asciiz "g3="
+#TN3, D:
+P: .asciiz "([{}])"
+P1: .asciiz "(a+b)*[c-{d/e}]"
+P2: .asciiz "f(x[i]{j}))"
+P3: .asciiz "{[(])}"
+P4: .asciiz "((a)"
+P5: .asciiz ""
+P6: .asciiz "no brackets here"
+P7: .asciiz "]"
+P8: .asciiz "([)]"
+loi: .asciiz "Loi: "
+vitri: .asciiz "Vi tri: "
+	.text
+#min / max
+	la $a0, diem_ca_nhan
+	addi $a1, $zero, 12	#n phan tu
+	jal stats
+	#min=<>
+	move $s0, $v0
+	move $s1, $v1
+	la $a0,min
+	li $v0, 4
+	syscall
+	move $a0, $s0
+	li $v0, 1
+	syscall
+	li $a0, 32
+	li $v0, 11
+	syscall
+	#max=<>
+	la $a0, max
+	li $v0, 4
+	syscall
+	move $a0, $s1
+	li $v0, 1
+	syscall
+	li $a0, 10
+	li $v0, 11
+	syscall
+#goi histogram
+	la $a0, diem_ca_nhan
+	addi $a1, $zero, 12	#n=12
+	la $a2, grade_tab
+	la $a3, hist
+	jal histo
+	#go=<>
+	la $s0, hist 
+	li $v0, 4
+	la $a0, g0
+	syscall
+	li $v0, 1
+	lw $a0, 0($s0)
+	syscall
+	li $v0 11
+	li $a0, 32
+	syscall
+	#g1=<>
+	la $s0, hist 
+	li $v0, 4
+	la $a0, g1
+	syscall
+	li $v0, 1
+	lw $a0, 4($s0)
+	syscall
+	li $v0 11
+	li $a0, 32
+	syscall
+	#g2=<>
+	la $s0, hist 
+	li $v0, 4
+	la $a0, g2
+	syscall
+	li $v0, 1
+	lw $a0, 8($s0)
+	syscall
+	li $v0 11
+	li $a0, 32
+	syscall
+	#g3=<>
+	la $s0, hist 
+	li $v0, 4
+	la $a0, g3
+	syscall
+	li $v0, 1
+	lw $a0, 12($s0)
+	syscall
+	li $v0 11
+	li $a0, 10
+	syscall
+#goi draw_hist
+	la $a0, hist
+	li $a1, 4
+	jal draw_hist
+#goi check_brakets
+	la $a0,P
+	jal check_brackets
+	move $s3, $v1
+	move $s4, $v0
+	
+	#Loi:<>
+	la $a0, loi
+	li $v0, 4
+	syscall
+	move $a0, $s3
+	li $v0, 1
+	syscall
+	li $a0, 32
+	li $v0, 11
+	syscall
+	
+	#Vitri:<>
+	la $a0,vitri
+	li $v0, 4
+	syscall
+	move $a0, $s4
+	li $v0, 1
+	syscall
+	li $a0, 10
+	li $v0, 11
+	syscall
+	
+#end
+	li $v0, 10
+	syscall
+	
+
+#stats:
+#input: $a0= arr address, $a1= so phan tu, 
+#output: $v0= min, $v1= max
+stats:
+	subi $t0, $a1,1	#i=n-1
+	lw $v0, 0($a0)
+	lw $v1, 0($a0)
+loop1:
+	beq $t0,$zero, end_stats
+	addi $a0, $a0, 4
+	subi $t0, $t0, 1
+	lw $t2, 0($a0)
+	bgt $v1,$t2,next	#if (x>max): max=x
+	move $v1,$t2
+next:	blt $v0, $t2, loop1	#if (x<min): min=x
+	move $v0, $t2
+	j loop1
+end_stats:
+	jr $ra
+
+#histogram:
+#input: $a0 = ð?a ch? m?ng ði?m, $a1 = n, $a2 = ð?a ch? grade_tab, $a3 = ð?a ch? hist
+#output: khong co 	
+histo: 
+	move $t0, $a1	#i=n
+loop2:
+	beq $t0, $zero, end_hist
+	lw $t1, 0($a0)
+	add $t2, $t1,$a2	#$t2= address (s)grade_tab
+	lbu $t2, 0($t2)		#$t2= grade_tab[s]
+	sll $t2, $t2 ,2		#byte x4
+	add $t2, $t2, $a3	#$t2= address (grade_tab[s])hist
+	lw $t3, 0($t2)		#$t3= hist[grade_tab[s]]
+	addi $t3, $t3, 1	#hist[grade_tab[s]] ++
+	sw $t3, 0($t2) 		#store hist[grade_tab[s]] m?i
+	
+	addi $a0, $a0, 4
+	subi $t0, $t0, 1	#i--
+	j loop2
+end_hist:
+	jr $ra
+
+#check_brackets:
+#input: $a0 = dia chi chuoi .asciiz 
+#output: $v0 = vi tri, $v1 = ma loi theo B?ng 15.
+check_brackets:
+	addi $v0, $zero, 0 	#vitri=0
+	addi $v1, $zero, 0	#chuoi hop le
+	move $t0, $sp		#luu vi tri stack bat dau
+loop3:
+	lbu $t1, 0($a0)
+	addi $v0, $v0, 1
+	beq $t1, $zero, check_empty
+	addi $a0, $a0, 1
+	
+	bne $t1,40,check1	#push (
+	addi $sp, $sp, -4
+	sw $t1, 0($sp)
+	j loop3
+check1:
+	bne $t1,91,check2	#push [
+	addi $sp, $sp, -4
+	sw $t1, 0($sp)
+	j loop3
+check2:
+	bne $t1,123,check_pop	#push {
+	addi $sp, $sp, -4
+	sw $t1, 0($sp)
+	j loop3
+check_pop:
+	lw $t2, 0($sp)		#pop
+	addi $sp, $sp, 4
+	beq $t1, 41, pop1
+	beq $t1, 93, pop2
+	beq $t1, 125, pop3
+	addi $sp, $sp, -4	#huy pop
+	j loop3
+pop1:
+	bgt $sp, $t0,empty
+	bne $t2, 40, error
+	j loop3
+pop2:
+	bgt $sp, $t0,empty
+	bne $t2, 91, error
+	j loop3
+pop3:
+	bgt $sp, $t0,empty
+	bne $t2, 123, error
+	j loop3
+error:	#loi 1 hoac 2
+	addi $v1, $zero, 1
+	j end_check_brackets
+check_empty:	#loi 0 hoac 3
+	beq $sp, $t0, no_error	#stack empty thi ket thuc
+	addi $v1, $zero, 3
+	j end_check_brackets
+empty:
+	li $v1,2
+	j end_check_brackets
+no_error:
+	li $v0,0
+end_check_brackets:
+	move $sp, $t0 	#khoi phuc stack
+	jr $ra
+	
+# draw_hist: ve pho diem bang ky tu |
+# input : $a0 = dia chi mang hist, $a1 = so nhom (4)
+# output: khong co (in ra man hinh)
+draw_hist:
+	move $t2, $a0		
+	move $t3, $a1		# so nhom
+	li   $t0, 0		# i = 0
+loop4:
+	beq  $t0, $t3, end_draw_hist
+	li   $v0, 11		# in nhan "gi: " 
+	li   $a0, 'g'
+	syscall
+	addi $a0, $t0, 48	# chu so nhom 
+	syscall
+	li   $a0, ':'
+	syscall
+	li   $a0, ' '
+	syscall
+	lw   $t1, 0($t2)	# so luong can in
+	addi $t2, $t2, 4	# sang phan tu hist ke tiep
+	addi $t0, $t0, 1	# i++
+draw:
+	beq  $t1, $zero, xuong_dong
+	addi $t1, $t1, -1
+	li   $a0, '|'
+	syscall
+	j    draw
+xuong_dong:
+	li   $a0, 10
+	syscall			# xuong dong
+	j loop4
+end_draw_hist:
+	jr   $ra
